@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  This template creates a Jenkins machine (on Ubuntu 18.04 LTS), an EB environment, and an EB sample 
+  application in Oregon or N. Virginia regions.
+Mappings:
+  Region:
+    us-east-1:
+      ubuntuAMI: ami-06b263d6ceff0b3dd
+    us-west-2:
+      ubuntuAMI: ami-0ba60995c1589da9d
+Parameters:
+  KeyPair:
+    Type: 'AWS::EC2::KeyPair::KeyName'
+Resources:
+  SGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: jenkins-beanstalk-22-8080
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp #required
+          ToPort: 22
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+  Jenkins:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      IamInstanceProfile: !Ref ec2BeanstalkProfile
+      ImageId: !FindInMap [Region, !Ref 'AWS::Region', ubuntuAMI]
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPair
+      SecurityGroups:
+        - !Ref SGroup
+      Tags:
+        - Key: Name
+          Value: jenkins-beanstalk
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash -xe
+          apt-get update -y
+          apt install openjdk-8-jre -y
+          wget -q -O - https://pkg.jenkins.io/debian-stable/jenkins.io.key | apt-key add -
+          sh -c 'echo deb https://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list'
+          apt-get update -y
+          apt-get install jenkins -y
+  ec2toBeanstalk:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSElasticBeanstalkFullAccess
+  ec2BeanstalkProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Roles: #required
+        - !Ref ec2toBeanstalk
+  WebServerRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+  WebServerRolePolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: WebServerRole
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            NotAction: 'iam:*'
+            Resource: '*'
+      Roles:
+        - !Ref WebServerRole
+  WebServerInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref WebServerRole
+  SampleApplication:
+    Type: 'AWS::ElasticBeanstalk::Application'
+    Properties:
+      Description: AWS Elastic Beanstalk Sample Python Application
+  SampleConfigurationTemplate:
+    Type: 'AWS::ElasticBeanstalk::ConfigurationTemplate'
+    Properties:
+      ApplicationName: !Ref SampleApplication
+      Description: SSH access to Python Application
+      SolutionStackName: 64bit Amazon Linux 2 v3.1.1 running Python 3.7
+      OptionSettings:
+        - Namespace: 'aws:autoscaling:launchconfiguration'
+          OptionName: EC2KeyName
+          Value: !Ref KeyPair
+        - Namespace: 'aws:autoscaling:launchconfiguration'
+          OptionName: IamInstanceProfile
+          Value: !Ref WebServerInstanceProfile
+  SampleEnvironment:
+    Type: 'AWS::ElasticBeanstalk::Environment'
+    Properties:
+      Description: AWS Elastic Beanstalk Environment running Sample Python Application
+      ApplicationName: !Ref SampleApplication
+      TemplateName: !Ref SampleConfigurationTemplate
+Outputs:
+  JenkinsURL: 
+    Value: !Join ['', ['http://', !GetAtt Jenkins.PublicIp, ':8080']]
