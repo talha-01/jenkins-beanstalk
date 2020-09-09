@@ -19,6 +19,7 @@ def main_get():
 @application.route('/', methods = ['POST'])
 def main_post():
     alpha = request.form['number']
+    test = 2
     if not alpha.isdecimal():
         return render_template('index.html', developer_name = 'Talha', not_valid = True)
     number = int(alpha)
