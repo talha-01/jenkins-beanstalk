@@ -34,7 +34,7 @@ Save and continue until you see the following screen.
 
 ![jenkins_4](screenshots/jenkins_4.png)
 
-## Install Elastic Beanstak plugin
+## Install Elastic Beanstalk plugin
 Go to `Manage Jenkins` on the main menu and select `Manage Plugins`. Select the `Available` tab and enter beanstalk into the search bar. Select `AWSEB Deployment` and `Install without restart`.
 
 ![beanstalk_plugin](screenshots/beanstalk_plugin.png)
@@ -53,7 +53,7 @@ Copy your GitHub project URL and paste it into `GitHub project Project url` bar 
 
 ![jenkins_5](screenshots/jenkins_5.png)
 
-Select `Git` in the `Source Code Management` section, and paste the GitHub repository URL (The repository url is same as the project url except it ends with .git)
+Select `Git` in the `Source Code Management` section, and paste the GitHub repository URL.
 
 ![jenkins_6](screenshots/jenkins_6.png)
 
